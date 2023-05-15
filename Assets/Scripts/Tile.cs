@@ -2,14 +2,21 @@ using UnityEngine;
 
 public class Tile
 {
-    public bool busy = false;
+    private GameObject building;
+    private Vector3Int pos;
 
-    public readonly float height;
-    public GameObject building;
+    private Block block;
 
-    public Tile(bool busy, float height)
+    public Tile(Vector3Int pos, Block block)
     {
-        this.busy = busy;
-        this.height = height;
+        this.pos = pos;
+        this.block = block;
+    }
+
+    public bool IsSolid()
+    {
+        bool result = block.type != Constants.Blocks.Air;
+
+        return result;
     }
 }

@@ -1,163 +1,226 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public class TileProcessor : MonoBehaviour
 {
-    private readonly int xSize = 75;
-    private readonly int zSize = 75;
+    private int xSize = 64;
+    private int ySize = 64;
+    private int zSize = 64;
 
     private Mesh mesh;
+
+    private Tile[,,] tiles;
+    
     private Vector3[] vertices;
-    private int[] triangles;
     private Color[] colors;
+    private int[] triangles;
 
-    private Tile[,] tiles;
+    private int[,] heights;
 
+    private int vert, tris;
 
-    public GameObject cube;
-
-    public GameObject exactlyCube;
-
-    private int direction;
-    private GameObject cursor;
-
+    private enum Planes
+    {
+        X,
+        Y,
+        Z
+    }
 
     private void Start()
     {
-        tiles = new Tile[xSize, zSize];
         mesh = new Mesh();
+        mesh.indexFormat = IndexFormat.UInt32;
         GetComponent<MeshFilter>().mesh = mesh;
+        
 
-        GenerateMap();
-
-        // StartCoroutine(spawn());
+        tiles = new Tile[xSize, ySize, zSize];
+        CreateShape();
+        UpdateMesh();
     }
 
-    private IEnumerator spawn()
+
+    void CreateShape()
     {
-        var xx = 1;
-        while (xx < 65)
+        vertices = new Vector3[(xSize + 1) * (ySize + 1) * (zSize + 1)];
+        triangles = new int[xSize * zSize * ySize * 6];
+        colors = new Color[(xSize + 1) * (ySize + 1) * (zSize + 1)];
+
+        heights = new int[xSize, zSize];
+
+        int v = 0;
+        for (int y = 0; y <= ySize; y++)
         {
-            CreateBelt(0, xx, 10, cube);
-            CreateBelt(2, xx, 12, cube);
-            CreateBelt(1, 30, xx, cube);
-            CreateBelt(3, 25, xx, cube);
-            xx++;
+            for (int z = 0; z <= xSize; z++)
+            {
+                for (int x = 0; x <= xSize; x++)
+                {
+                    vertices[v] = new Vector3(x, y, z);
+                    colors[v] = Color.Lerp(Color.black, new Color(0.97f, 0.79f, 0.5f), (y - 10) / 9.5f);
+                    v++;
+                }
+            }
+        }
+
+        for (int y = 0; y < ySize; y++)
+        {
+            for (int z = 0; z < zSize; z++)
+            {
+                for (int x = 0; x < xSize; x++)
+                {
+                    if (y == 0)
+                        heights[x, z] = (int) (Mathf.PerlinNoise(x * .04f, z * .04f) * 15f + 10);
+                    if (y < heights[x, z])
+                        tiles[x, y, z] = new Tile(new Vector3Int(x, y, z),
+                            new Block(Constants.Blocks.Sandstone, 900));
+                    else 
+                        tiles[x, y, z] = new Tile(new Vector3Int(x, y, z),
+                            new Block(Constants.Blocks.Air, 0));
+                }
+            }
+        }
+
+        for (int y = 0; y < ySize; y++)
+        {
+            UpdateMesh();
+            for (int z = 0; z < xSize; z++)
+            {
+                for (int x = 0; x < xSize; x++)
+                {
+                    ProcessTile(new Vector3Int(x, y, z));
+                }
+            }
+        }
+        
+        // StartCoroutine(processing());
+    }
+
+    IEnumerator processing()
+    {
+        int x = 0;
+        int y = 0;
+        int z = 0;
+        while (true)
+        {
+            ProcessTile(new Vector3Int(x, y, z));
+            x++;
+            if (x == xSize)
+            {
+                x = 0;
+                z++;
+            }
+
+            if (z == zSize)
+            {
+                z = 0;
+                y++;
+            }
+
+            if (y == ySize)
+            {
+                break;
+            }
+
             yield return new WaitForEndOfFrame();
         }
     }
-
-    private void Update()
+    void ProcessTile(Vector3Int pos)
     {
-        if (Input.GetKeyDown(KeyCode.R))
+        if (!tiles[pos.x, pos.y, pos.z].IsSolid()) return;
+        
+        if (pos.x == 0)
         {
-            direction++;
-            if (direction > 3) direction = 0;
+            CreateFace(pos, Planes.X, false);
         }
-    }
-
-    public void Cube(Vector3 hit)
-    {
-        var x = (int) (hit.x + 0.5f);
-        var y = (int) (hit.y + 0.5f);
-        var z = (int) (hit.z + 0.5f);
-        if (tiles[x, z].busy) return;
-
-        var belt = CreateBelt(direction, x, z, cube);
-        tiles[x, z].busy = true;
-
+        if (pos.y == 0)
         {
-            // Vector3[] quad = GetTileVertices(x, z);
-            // Instantiate(cube, new Vector3(x, tiles[x, z].height + 0.5f, z), 
-            //     Quaternion.Euler(length(0, x, 1), 90, 0));
-            //
-            // Debug.DrawLine(quad[0], quad[1], Color.white);
-            // Debug.DrawLine(quad[0], quad[2], Color.white);
-            // Debug.DrawLine(quad[1], quad[3], Color.white);
-            // Debug.DrawLine(quad[2], quad[3], Color.white);
-            // tiles[x, z].busy = true;
-            // length(0, x, z);
+            CreateFace(pos, Planes.Y, false);
         }
-    }
-
-    public void ReallyCube(Vector3 hit)
-    {
-        var x = (int) (hit.x + 0.5f);
-        var y = (int) (hit.y + 0.5f);
-        var z = (int) (hit.z + 0.5f);
-        if (tiles[x, z].busy) return;
-
-        Instantiate(exactlyCube, new Vector3(x, tiles[x, z].height + 0.5f, z), Quaternion.identity);
-    }
-
-    public void HighlightTile(Vector3 hit)
-    {
-        var x = (int) (hit.x + 0.5f);
-        var y = (int) (hit.y + 0.5f);
-        var z = (int) (hit.z + 0.5f);
-
-        var quad = GetTileVertices(x, z);
-
-        for (var i = 0; i < 4; i++) quad[i] += new Vector3(0, 0.1f, 0);
-
-        var m = new Mesh();
-
-        if (cursor == null)
+        if (pos.z == 0)
         {
-            cursor = new GameObject();
-            cursor.AddComponent<MeshRenderer>();
-            cursor.AddComponent<MeshFilter>();
+            CreateFace(pos, Planes.Z, false);
         }
-
-        m.vertices = quad;
-        m.triangles = new[] {2, 1, 0, 1, 2, 3};
-        cursor.GetComponent<MeshFilter>().mesh = m;
+        if (pos.x < xSize - 1 && !tiles[pos.x + 1, pos.y, pos.z].IsSolid()) //FORWARD
+            CreateFace(pos + Vector3Int.right, Planes.X, true);
+        if (pos.x > 0 && !tiles[pos.x - 1, pos.y, pos.z].IsSolid()) //BACK
+            CreateFace(pos, Planes.X, false);
+        if (pos.y < ySize - 1 && !tiles[pos.x, pos.y + 1, pos.z].IsSolid()) //UP
+            CreateFace(pos + Vector3Int.up, Planes.Y, true);
+        if (pos.y > 0 && !tiles[pos.x, pos.y - 1, pos.z].IsSolid()) //DOWN
+            CreateFace(pos, Planes.Y, false);
+        if(pos.z < zSize - 1 && !tiles[pos.x, pos.y, pos.z + 1].IsSolid()) //RIGHT
+            CreateFace(pos + Vector3Int.forward, Planes.Z, true);
+        if (pos.z > 0 && !tiles[pos.x, pos.y, pos.z - 1].IsSolid()) //LEFT
+            CreateFace(pos, Planes.Z, false);
+        
+        if (pos.x == xSize - 1) //END X
+            CreateFace(pos + Vector3Int.right, Planes.X, true);
+        if (pos.y == ySize - 1) //END Y
+            CreateFace(pos + Vector3Int.up, Planes.Y, true);
+        if (pos.z == zSize - 1) //END Z
+            CreateFace(pos + Vector3Int.forward, Planes.Z, true);
     }
-
-    #region TILES
-
-    private void GenerateMap()
+    void CreateFace(Vector3Int p, Planes plane, bool inside)
     {
-        vertices = new Vector3[(xSize + 1) * (zSize + 1)];
-        colors = new Color[(xSize + 1) * (zSize + 1)];
-        tiles = new Tile[xSize, zSize];
-
-        for (int i = 0, z = 0; z <= zSize; z++)
-        for (var x = 0; x <= xSize; x++)
+        int corner;
+        switch (plane)
         {
-            var y = Mathf.PerlinNoise(x * .03f, z * .03f) * 15;
-            vertices[i] = new Vector3(x - 0.5f, y, z - 0.5f);
-            colors[i] = Color.Lerp(Color.white, Color.black, y / 15);
-            i++;
-        }
-
-        triangles = new int[xSize * zSize * 6];
-        var vert = 0;
-        var tris = 0;
-        for (var z = 0; z < zSize; z++)
-        {
-            for (var x = 0; x < xSize; x++)
+            case Planes.X:
             {
-                var height = CalculateTileHeight(GetTileVertices(x, z));
-                tiles[x, z] = new Tile(false, height);
-
-                triangles[tris + 0] = vert + 0;
-                triangles[tris + 1] = vert + xSize + 1;
-                triangles[tris + 2] = vert + 1;
-                triangles[tris + 3] = vert + 1;
-                triangles[tris + 4] = vert + xSize + 1;
-                triangles[tris + 5] = vert + xSize + 2;
-                vert++;
-                tris += 6;
-            }
-
-            vert++;
+                corner = p.y * (xSize + 1) * (zSize + 1) + p.z * (xSize + 1) + p.x;
+                DefineTriangles(new []
+                {
+                    corner,
+                    corner + xSize + 1,
+                    corner + (xSize + 1) * (zSize + 1) + (xSize + 1),
+                    corner + (xSize + 1) * (zSize + 1) + (xSize + 1),
+                    corner + (xSize + 1) * (zSize + 1),
+                    corner
+                }, inside);
+            } break;
+            case Planes.Y:
+            {
+                corner = p.y * (xSize + 1) * (zSize + 1) + p.z * (xSize + 1) + p.x;
+                DefineTriangles(new []
+                {
+                    corner,
+                    corner + xSize + 2,
+                    corner + xSize + 1,
+                    corner,
+                    corner + 1,
+                    corner + xSize + 2
+                }, inside);
+            } break;
+            case Planes.Z:
+            {
+                corner = p.y * (xSize + 1) * (zSize + 1) + p.z * (xSize + 1) + p.x;
+                DefineTriangles(new []
+                {
+                    corner,
+                    corner + (xSize + 1) * (zSize + 1),
+                    corner + (xSize + 1) * (zSize + 1) + 1,
+                    corner,
+                    corner + (xSize + 1) * (zSize + 1) + 1,
+                    corner + 1
+                }, inside);
+            } break;
         }
+    }
 
+    private void DefineTriangles(int[] tri, bool inside)
+    {
+        triangles[inside ? tris + 2 : tris] = tri[0];
+        triangles[tris + 1] = tri[1];
+        triangles[inside ? tris : tris + 2] = tri[2];
+        triangles[inside ? tris + 5 : tris + 3] = tri[3];
+        triangles[tris + 4] = tri[4];
+        triangles[inside ? tris + 3 : tris + 5] = tri[5];
+        
+        tris += 6;
+    }
+    void UpdateMesh()
+    {
         mesh.Clear();
 
         mesh.vertices = vertices;
@@ -167,188 +230,16 @@ public class TileProcessor : MonoBehaviour
         mesh.RecalculateNormals();
     }
 
-    private Vector3[] GetTileVertices(int x, int z)
+    // private Vector3Int CastClick(Vector3 clickPoint)
+    // {
+    //     
+    // }
+
+    private void OnDrawGizmos()
     {
-        return new[]
+        foreach (var vert in vertices)
         {
-            vertices[(xSize + 1) * z + x],
-            vertices[(xSize + 1) * z + x + 1],
-            vertices[(xSize + 1) * (z + 1) + x],
-            vertices[(xSize + 1) * (z + 1) + x + 1]
-        };
-    }
-
-    private float CalculateTileHeight(Vector3[] vert)
-    {
-        return vert.Select(v => v.y).Prepend(0).Max();
-    }
-
-    public Tile GetTile(int x, int z)
-    {
-        return tiles[x, z];
-    }
-
-    #endregion
-
-    #region TransportBelt
-
-    private GameObject CreateBelt(int dir, int x, int z, GameObject prefab)
-    {
-        if (tiles[x, z].busy) return null;
-        tiles[x, z].busy = true;
-        float len = 1;
-        float diff = 0;
-
-        var position = Vector3.zero;
-        var scale = Vector3.one;
-
-        float a = 0;
-        float b = 0;
-
-        var points = CalculateLinkPoints(dir, x, z);
-        a = points.x;
-        b = points.y;
-
-        len = Vector2.Distance(new Vector2(0, a), new Vector2(1, b));
-        diff = a - b;
-        position = new Vector3(x, (a + b) / 2 + 0.5f, z);
-        scale = new Vector3(len, 1, 1);
-        var angle = -Mathf.Asin(diff / len) * Mathf.Rad2Deg;
-
-        var belt = Instantiate(prefab, position, Quaternion.Euler(0, 90 * dir, angle));
-        belt.transform.localScale = scale;
-        belt.name = "TransportBelt";
-        belt.GetComponent<TransportBelt>().Redirect(dir);
-
-        tiles[x, z].building = belt;
-
-        var neighbors = GetNearBuildings(x, z);
-        foreach (var neighbor in neighbors)
-            if (neighbor && neighbor.name == "TransportBelt")
-                RecalculateBeltRot(neighbor);
-        return belt;
-    }
-
-    private void RecalculateBeltRot(GameObject belt)
-    {
-        var beltPos = belt.transform.position;
-
-        var x = (int) beltPos.x;
-        var z = (int) beltPos.z;
-
-        float len = 1;
-        float diff = 0;
-
-        var position = Vector3.zero;
-        var scale = Vector3.one;
-
-        float a = 0;
-        float b = 0;
-
-        var dir = belt.GetComponent<TransportBelt>().direction;
-
-        var points = CalculateLinkPoints(dir, x, z);
-        a = points.x;
-        b = points.y;
-
-        len = Vector2.Distance(new Vector2(0, a), new Vector2(1, b));
-        diff = a - b;
-        position = new Vector3(x, (a + b) / 2 + 0.5f, z);
-        scale = new Vector3(len, 1, 1);
-        var angle = -Mathf.Asin(diff / len) * Mathf.Rad2Deg;
-
-        belt.transform.position = position;
-        belt.transform.localEulerAngles = new Vector3(0, 90 * dir, angle);
-        belt.transform.localScale = scale;
-    }
-
-    private Vector2 CalculateLinkPoints(int dir, int x, int z)
-    {
-        var result = Vector2.zero;
-        GameObject[] buildings =
-        {
-            tiles[x + 1, z].building,
-            tiles[x, z - 1].building,
-            tiles[x - 1, z].building,
-            tiles[x, z + 1].building
-        };
-
-        int x1 = 0, x2 = 0, z1 = 0, z2 = 0;
-
-        switch (dir)
-        {
-            case 0:
-            {
-                x1 = -1;
-                x2 = 1;
-            }
-                break;
-            case 1:
-            {
-                z1 = 1;
-                z2 = -1;
-            }
-                break;
-            case 2:
-            {
-                x1 = 1;
-                x2 = -1;
-            }
-                break;
-            case 3:
-            {
-                z1 = -1;
-                z2 = 1;
-            }
-                break;
+            Gizmos.DrawSphere(vert, 0.1f);
         }
-
-        if (IsBeltLinkable(buildings[dir >= 2 ? dir - 2 : dir + 2]))
-            result.x = (tiles[x, z].height + tiles[x + x1, z + z1].height) / 2;
-        else
-            result.x = tiles[x + x1, z + z1].height;
-
-        if (IsBeltLinkable(buildings[dir]))
-            result.y = (tiles[x, z].height + tiles[x + x2, z + z2].height) / 2;
-        else
-            result.y = tiles[x + x2, z + z2].height;
-        return result;
     }
-
-    private static bool IsBeltLinkable(GameObject building)
-    {
-        string[] names = {"TransportBelt"};
-
-        if (!building) return false;
-
-        return names.Contains(building.name);
-    }
-
-    #endregion
-
-    private GameObject[] GetNearBuildings(int x, int z)
-    {
-        return new[]
-        {
-            tiles[x + 1, z].building,
-            tiles[x, z - 1].building,
-            tiles[x - 1, z].building,
-            tiles[x, z + 1].building
-        };
-    }
-    // private void OnDrawGizmos()
-    //  {
-    //      if (tiles == null)
-    //      {
-    //          return;
-    //      }
-    //
-    //      for (int x = 0; x < xSize; x++)
-    //      {
-    //          for (int z = 0; z < zSize; z++)
-    //          {
-    //              Gizmos.DrawCube(new Vector3(x, tiles[x, z].height, z), new Vector3(1, 0.1f, 1));
-    //          }
-    //      }
-    //  }
 }
