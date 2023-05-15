@@ -19,4 +19,9 @@ public class Tile
 
         return result;
     }
+
+    public void Destroy()
+    {
+        block = new Block(Constants.Blocks.Air, 0);
+    }
 }

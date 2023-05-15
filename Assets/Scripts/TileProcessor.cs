@@ -5,9 +5,9 @@ using UnityEngine.Rendering;
 
 public class TileProcessor : MonoBehaviour
 {
-    private int xSize = 64;
+    private int xSize = 16;
     private int ySize = 64;
-    private int zSize = 64;
+    private int zSize = 16;
 
     private Mesh mesh;
 
@@ -28,41 +28,16 @@ public class TileProcessor : MonoBehaviour
         Z
     }
 
+    public GameObject cube;
+
     private void Start()
     {
         mesh = new Mesh();
         mesh.indexFormat = IndexFormat.UInt32;
         GetComponent<MeshFilter>().mesh = mesh;
         
-
         tiles = new Tile[xSize, ySize, zSize];
-        CreateShape();
-        UpdateMesh();
-    }
-
-
-    void CreateShape()
-    {
-        vertices = new Vector3[(xSize + 1) * (ySize + 1) * (zSize + 1)];
-        triangles = new int[xSize * zSize * ySize * 6];
-        colors = new Color[(xSize + 1) * (ySize + 1) * (zSize + 1)];
-
         heights = new int[xSize, zSize];
-
-        int v = 0;
-        for (int y = 0; y <= ySize; y++)
-        {
-            for (int z = 0; z <= xSize; z++)
-            {
-                for (int x = 0; x <= xSize; x++)
-                {
-                    vertices[v] = new Vector3(x, y, z);
-                    colors[v] = Color.Lerp(Color.black, new Color(0.97f, 0.79f, 0.5f), (y - 10) / 9.5f);
-                    v++;
-                }
-            }
-        }
-
         for (int y = 0; y < ySize; y++)
         {
             for (int z = 0; z < zSize; z++)
@@ -77,6 +52,34 @@ public class TileProcessor : MonoBehaviour
                     else 
                         tiles[x, y, z] = new Tile(new Vector3Int(x, y, z),
                             new Block(Constants.Blocks.Air, 0));
+                }
+            }
+        }
+        
+        DrawShape();
+        UpdateMesh();
+    }
+
+
+    void DrawShape()
+    {
+        vertices = new Vector3[(xSize + 1) * (ySize + 1) * (zSize + 1)];
+        triangles = new int[xSize * zSize * ySize * 6];
+        colors = new Color[(xSize + 1) * (ySize + 1) * (zSize + 1)];
+
+        vert = 0;
+        tris = 0;
+        
+        int v = 0;
+        for (int y = 0; y <= ySize; y++)
+        {
+            for (int z = 0; z <= xSize; z++)
+            {
+                for (int x = 0; x <= xSize; x++)
+                {
+                    vertices[v] = new Vector3(x, y, z);
+                    colors[v] = Color.Lerp(Color.black, new Color(0.97f, 0.79f, 0.5f), (y - 10) / 9.5f);
+                    v++;
                 }
             }
         }
@@ -145,10 +148,12 @@ public class TileProcessor : MonoBehaviour
             CreateFace(pos + Vector3Int.right, Planes.X, true);
         if (pos.x > 0 && !tiles[pos.x - 1, pos.y, pos.z].IsSolid()) //BACK
             CreateFace(pos, Planes.X, false);
+        
         if (pos.y < ySize - 1 && !tiles[pos.x, pos.y + 1, pos.z].IsSolid()) //UP
             CreateFace(pos + Vector3Int.up, Planes.Y, true);
         if (pos.y > 0 && !tiles[pos.x, pos.y - 1, pos.z].IsSolid()) //DOWN
             CreateFace(pos, Planes.Y, false);
+        
         if(pos.z < zSize - 1 && !tiles[pos.x, pos.y, pos.z + 1].IsSolid()) //RIGHT
             CreateFace(pos + Vector3Int.forward, Planes.Z, true);
         if (pos.z > 0 && !tiles[pos.x, pos.y, pos.z - 1].IsSolid()) //LEFT
@@ -230,16 +235,36 @@ public class TileProcessor : MonoBehaviour
         mesh.RecalculateNormals();
     }
 
-    // private Vector3Int CastClick(Vector3 clickPoint)
-    // {
-    //     
-    // }
+    public Vector3Int CastClick(Vector3 clickPoint, Vector3 normal)
+    {
+        Debug.Log("clicked: " + clickPoint + "   normal: " + normal);
+        normal *= -1;
+        Vector3Int targetedBlock = new Vector3Int(
+            (int) Math.Floor(normal.x > 0 ? clickPoint.x : clickPoint.x + normal.x),
+            (int) Math.Floor(normal.y > 0 ? clickPoint.y : clickPoint.y + normal.y),
+            (int) Math.Floor(normal.z > 0 ? clickPoint.z : clickPoint.z + normal.z)
+        );
+        Debug.Log("target: " + targetedBlock);
+        
+        
+        tiles[targetedBlock.x, targetedBlock.y, targetedBlock.z].Destroy();
+        DrawShape();
+        // Instantiate(cube, Vector3.one * 0.5f + targetedBlock, Quaternion.identity);
+        return targetedBlock;
+    }
 
     private void OnDrawGizmos()
     {
-        foreach (var vert in vertices)
+        for (int y = 0; y < ySize; y++)
         {
-            Gizmos.DrawSphere(vert, 0.1f);
+            for (int z = 0; z < xSize; z++)
+            {
+                for (int x = 0; x < xSize; x++)
+                {
+                    if (tiles[x, y, z].IsSolid())
+                    Gizmos.DrawWireSphere(new Vector3(x + 0.5f, y + 0.5f, z + 0.5f), 0.1f);
+                }
+            }
         }
     }
 }
