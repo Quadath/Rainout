@@ -35,7 +35,6 @@ public class Chunk : MonoBehaviour
         chunkSize = size;
         this.worldSize = worldSize;
         
-        transform.position = new Vector3(number.x * chunkSize.x, 0, number.y * chunkSize.z);
         gameObject.name = $"Chunk[{number.x}][{number.y}]";
         
         Draw();
@@ -60,7 +59,7 @@ public class Chunk : MonoBehaviour
                 for (int x = number.x * chunkSize.x; x <= number.x * chunkSize.x + chunkSize.x; x++)
                 {
                     vertices[v] = new Vector3(x, y, z);
-                    colors[v] = Color.Lerp(Color.black, Color.red, (y - 4) / 13.5f);
+                    colors[v] = Color.Lerp(Color.black, Color.red, (y - 20) / 40.5f);
                     v++;
                 }
             }
@@ -124,7 +123,7 @@ public class Chunk : MonoBehaviour
         {
             case Planes.X:
             {
-                corner = p.y * (chunkSize.x + 1) * (chunkSize.z + 1) + p.z * (chunkSize.x + 1) + p.x;
+                corner = p.y * (chunkSize.x + 1) * (chunkSize.z + 1) + (p.z - number.y * chunkSize.z) * (chunkSize.x + 1) + (p.x - number.x * chunkSize.x);
                 DefineTriangles(new []
                 {
                     corner,
@@ -137,7 +136,7 @@ public class Chunk : MonoBehaviour
             } break;
             case Planes.Y:
             {
-                corner = p.y * (chunkSize.x + 1) * (chunkSize.z + 1) + p.z * (chunkSize.x + 1) + p.x;
+                corner = p.y * (chunkSize.x + 1) * (chunkSize.z + 1) + (p.z - number.y * chunkSize.z) * (chunkSize.x + 1) + (p.x - number.x * chunkSize.x);
                 DefineTriangles(new []
                 {
                     corner,
@@ -150,7 +149,7 @@ public class Chunk : MonoBehaviour
             } break;
             case Planes.Z:
             {
-                corner = p.y * (chunkSize.x + 1) * (chunkSize.z + 1) + p.z * (chunkSize.x + 1) + p.x;
+                corner = p.y * (chunkSize.x + 1) * (chunkSize.z + 1) + (p.z - number.y * chunkSize.z) * (chunkSize.x + 1) + (p.x - number.x * chunkSize.x);
                 DefineTriangles(new []
                 {
                     corner,

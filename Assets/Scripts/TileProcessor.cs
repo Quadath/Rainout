@@ -5,9 +5,9 @@ using UnityEngine.Rendering;
 
 public class TileProcessor : MonoBehaviour
 {
-    private int xSize = 32;
+    private int xSize = 1024;
     private int ySize = 64;
-    private int zSize = 32;
+    private int zSize = 1024;
 
     private Mesh mesh;
 
@@ -21,7 +21,7 @@ public class TileProcessor : MonoBehaviour
 
     private int vert, tris;
     private Chunk[,] chunks;
-    private Vector3Int chunkSize = new Vector3Int(16, 32, 16);
+    private Vector3Int chunkSize = new Vector3Int(16, 64, 16);
 
     public GameObject chunkPrefab;
 
@@ -43,7 +43,7 @@ public class TileProcessor : MonoBehaviour
                 for (int x = 0; x < xSize; x++)
                 {
                     if (y == 0)
-                        heights[x, z] = (int) (Mathf.PerlinNoise(x * .02f, z * .02f) * 13   + 10);
+                        heights[x, z] = (int) (Mathf.PerlinNoise(x * .002f, z * .002f) * 35 + 10);
                     if (y < heights[x, z])
                         tiles[x, y, z] = new Tile(new Vector3Int(x, y, z),
                             new Block(Constants.Blocks.Sandstone, 900));
