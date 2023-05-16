@@ -5,9 +5,9 @@ using UnityEngine.Rendering;
 
 public class TileProcessor : MonoBehaviour
 {
-    private int xSize = 16;
+    private int xSize = 32;
     private int ySize = 64;
-    private int zSize = 16;
+    private int zSize = 32;
 
     private Mesh mesh;
 
@@ -20,6 +20,10 @@ public class TileProcessor : MonoBehaviour
     private int[,] heights;
 
     private int vert, tris;
+    private Chunk[,] chunks;
+    private Vector3Int chunkSize = new Vector3Int(16, 32, 16);
+
+    public GameObject chunkPrefab;
 
     private enum Planes
     {
@@ -28,14 +32,8 @@ public class TileProcessor : MonoBehaviour
         Z
     }
 
-    public GameObject cube;
-
     private void Start()
     {
-        mesh = new Mesh();
-        mesh.indexFormat = IndexFormat.UInt32;
-        GetComponent<MeshFilter>().mesh = mesh;
-        
         tiles = new Tile[xSize, ySize, zSize];
         heights = new int[xSize, zSize];
         for (int y = 0; y < ySize; y++)
@@ -45,7 +43,7 @@ public class TileProcessor : MonoBehaviour
                 for (int x = 0; x < xSize; x++)
                 {
                     if (y == 0)
-                        heights[x, z] = (int) (Mathf.PerlinNoise(x * .04f, z * .04f) * 15f + 10);
+                        heights[x, z] = (int) (Mathf.PerlinNoise(x * .02f, z * .02f) * 13   + 10);
                     if (y < heights[x, z])
                         tiles[x, y, z] = new Tile(new Vector3Int(x, y, z),
                             new Block(Constants.Blocks.Sandstone, 900));
@@ -55,16 +53,24 @@ public class TileProcessor : MonoBehaviour
                 }
             }
         }
-        
-        DrawShape();
-        UpdateMesh();
+
+        chunks = new Chunk[xSize / chunkSize.x, (zSize / chunkSize.z)];
+
+        for (int z = 0; z < chunks.GetLength(1); z++)
+        {
+            for (int x = 0; x < chunks.GetLength(0); x++)
+            {
+                Chunk ch = Instantiate(chunkPrefab, transform).GetComponent<Chunk>();
+                ch.InitChunk(new Vector2Int(x, z), chunkSize, new Vector3Int(xSize, ySize, zSize));
+            }
+        }
     }
 
 
     void DrawShape()
     {
         vertices = new Vector3[(xSize + 1) * (ySize + 1) * (zSize + 1)];
-        triangles = new int[xSize * zSize * ySize * 6];
+        triangles = new int[xSize * ySize * zSize * 6];
         colors = new Color[(xSize + 1) * (ySize + 1) * (zSize + 1)];
 
         vert = 0;
@@ -78,7 +84,7 @@ public class TileProcessor : MonoBehaviour
                 for (int x = 0; x <= xSize; x++)
                 {
                     vertices[v] = new Vector3(x, y, z);
-                    colors[v] = Color.Lerp(Color.black, new Color(0.97f, 0.79f, 0.5f), (y - 10) / 9.5f);
+                    colors[v] = Color.Lerp(Color.black, Color.red, (y - 20) / 30.5f);
                     v++;
                 }
             }
@@ -86,7 +92,6 @@ public class TileProcessor : MonoBehaviour
 
         for (int y = 0; y < ySize; y++)
         {
-            UpdateMesh();
             for (int z = 0; z < xSize; z++)
             {
                 for (int x = 0; x < xSize; x++)
@@ -95,7 +100,7 @@ public class TileProcessor : MonoBehaviour
                 }
             }
         }
-        
+        UpdateMesh();
         // StartCoroutine(processing());
     }
 
@@ -235,36 +240,42 @@ public class TileProcessor : MonoBehaviour
         mesh.RecalculateNormals();
     }
 
-    public Vector3Int CastClick(Vector3 clickPoint, Vector3 normal)
+    public Vector3Int CastClick(Vector3 clickPoint, Vector3 normal, string operation)
     {
-        Debug.Log("clicked: " + clickPoint + "   normal: " + normal);
-        normal *= -1;
-        Vector3Int targetedBlock = new Vector3Int(
-            (int) Math.Floor(normal.x > 0 ? clickPoint.x : clickPoint.x + normal.x),
-            (int) Math.Floor(normal.y > 0 ? clickPoint.y : clickPoint.y + normal.y),
-            (int) Math.Floor(normal.z > 0 ? clickPoint.z : clickPoint.z + normal.z)
-        );
-        Debug.Log("target: " + targetedBlock);
-        
-        
-        tiles[targetedBlock.x, targetedBlock.y, targetedBlock.z].Destroy();
-        DrawShape();
-        // Instantiate(cube, Vector3.one * 0.5f + targetedBlock, Quaternion.identity);
-        return targetedBlock;
+        // Debug.Log("clicked: " + clickPoint + "   normal: " + normal);
+        // normal *= -1;
+        // Vector3Int targetedBlock = new Vector3Int(
+        //     (int) Math.Floor(normal.x > 0 ? clickPoint.x : clickPoint.x + normal.x),
+        //     (int) Math.Floor(normal.y > 0 ? clickPoint.y : clickPoint.y + normal.y),
+        //     (int) Math.Floor(normal.z > 0 ? clickPoint.z : clickPoint.z + normal.z)
+        // );
+        // Debug.Log("target: " + targetedBlock);
+        //
+        // if (operation == "destroy") tiles[targetedBlock.x, targetedBlock.y, targetedBlock.z].Destroy();
+        // if (operation == "place") tiles[targetedBlock.x - (int)normal.x, targetedBlock.y - (int)normal.y, targetedBlock.z - (int)normal.z].PutBlock(new Block(Constants.Blocks.Sandstone, 900));
+        // DrawShape();
+        // // Instantiate(cube, Vector3.one * 0.5f + targetedBlock, Quaternion.identity);
+        // return targetedBlock;
+        return new Vector3Int(0, 0, 0);
+    }
+
+    public Tile[,,] GetAllTiles()
+    {
+        return tiles;
     }
 
     private void OnDrawGizmos()
     {
-        for (int y = 0; y < ySize; y++)
-        {
-            for (int z = 0; z < xSize; z++)
-            {
-                for (int x = 0; x < xSize; x++)
-                {
-                    if (tiles[x, y, z].IsSolid())
-                    Gizmos.DrawWireSphere(new Vector3(x + 0.5f, y + 0.5f, z + 0.5f), 0.1f);
-                }
-            }
-        }
+        // for (int y = 0; y < ySize; y++)
+        // {
+        //     for (int z = 0; z < xSize; z++)
+        //     {
+        //         for (int x = 0; x < xSize; x++)
+        //         {
+        //             if (tiles[x, y, z].IsSolid())
+        //             Gizmos.DrawWireSphere(new Vector3(x + 0.5f, y + 0.5f, z + 0.5f), 0.1f);
+        //         }
+        //     }
+        // }
     }
 }

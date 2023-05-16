@@ -24,4 +24,9 @@ public class Tile
     {
         block = new Block(Constants.Blocks.Air, 0);
     }
+
+    public void PutBlock(Block target)
+    {
+        block = target;
+    }
 }
