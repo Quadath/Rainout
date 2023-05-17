@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: -6060888601164474247}
   - component: {fileID: -4102767513751732437}
   m_Layer: 0
-  m_Name: Shell
+  m_Name: shell
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -93,11 +93,11 @@ SphereCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5753604889053064854}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: e093653d01ad23a4391f6903788add72, type: 2}
   m_IsTrigger: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 0.5
+  m_Radius: 0.2
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!54 &-6060888601164474247
 Rigidbody:

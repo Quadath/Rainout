@@ -1,7 +1,3 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public class Artillery : MonoBehaviour
@@ -43,7 +39,7 @@ public class Artillery : MonoBehaviour
             {
                 Instantiate(shellPrefab, shootElement.transform.position, Quaternion.Euler(0, rot_y, rot_z + 90))
                     .GetComponent<ArtilleryShell>().Init(midpoint, tp, shellSpeed, transform.position);
-                shootCooldown = 1;
+                shootCooldown = 1 + Random.Range(-0.1f, 0.1f);
             }
         
     }
