@@ -10,6 +10,8 @@ public class ArtilleryShell : MonoBehaviour
 
     private float startAngle;
     private float startDistance;
+
+    private float flightDistance;
     
 
     public void Init(Vector3 m, Vector3 t, float speed)
@@ -25,26 +27,46 @@ public class ArtilleryShell : MonoBehaviour
     private void Update()
     {
         var cp = transform.position;
-        float distance = Vector3.Distance(cp, midpoint);
+        float distance = 0;
 
-        float t = (startDistance - distance) / (startDistance) + 0.05f;
-        if (t < 0) t = 0;
+        float targetAngle;
+        float t = 0;
+        Vector3 targetRotation;
+        
+        if (midpoint != Vector3.zero)
+        {
+            targetAngle = 85;
+            distance = Vector3.Distance(cp, midpoint);
+            t = Mathf.Pow((startDistance - distance) / (startDistance) + 0.05f, 3);
+            targetRotation = new Vector3(0, 0, Mathf.Lerp(startAngle, targetAngle, t));
+            transform.Translate(-Vector3.up * (speed * (1.25f - t) * Time.deltaTime));
+        }
+        else
+        {
+            float horizontalDiff = Vector3.Distance(new Vector3(cp.x, 0, cp.z), new Vector3(target.x, 0, target.z));
+            distance = Vector3.Distance(cp, target);
+            targetAngle = Mathf.Atan2(midpoint.y - cp.y, horizontalDiff) * Mathf.Rad2Deg + 90;
+            t = (float)Math.Pow((startDistance - distance) / (startDistance), 1f / 3f);
+            Debug.Log($"start: {startDistance}, distance: {distance}");
+            targetRotation = new Vector3(0, 0, Mathf.Lerp(startAngle, targetAngle, t));
+            transform.Translate(-Vector3.up * (speed * t * Time.deltaTime));
+            
+            if (distance < 2f) Destroy(gameObject);
+        }
 
-        float horizontalDiff = Vector3.Distance(new Vector3(cp.x, 0, cp.z), new Vector3(midpoint.x, 0, midpoint.z));
 
-        float targetAngle = Mathf.Atan2(midpoint.y - cp.y, horizontalDiff) * Mathf.Rad2Deg + 90;
-        targetAngle = 90;
-        Debug.Log($"startAngle: {startAngle}, targetAngle: {targetAngle}, t: {Mathf.Pow(t, 4)}");
-        transform.localEulerAngles = new Vector3(0, 0, Mathf.Lerp(startAngle, targetAngle, Mathf.Pow(t, 4)));
+        Debug.Log($"startAngle: {startAngle}, targetAngle: {targetAngle}, t: {t}");
+        transform.localEulerAngles = targetRotation;
 
         if (t >= 1)
         {
-            
+            midpoint = Vector3.zero;
+            startAngle = 90;
+            startDistance = Vector3.Distance(cp, target);
         }
 
         Debug.DrawRay(cp, transform.up, Color.yellow);
         
-        transform.Translate(-Vector3.up * (speed * Time.deltaTime));
         // if (distance < 1) Destroy(this);
     }
 }
