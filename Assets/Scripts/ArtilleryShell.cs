@@ -56,7 +56,7 @@ public class ArtilleryShell : MonoBehaviour
 
         distance = Vector3.Distance(new Vector3(cp.x, 0, cp.z), new Vector3(target.x, 0, target.z));
         t = (startDistance - distance) / (startDistance) + 0.1f;
-        float targetAngle = Mathf.Atan2(target.y - midpoint.y, distance) * Mathf.Rad2Deg + 90f;
+        float targetAngle = Mathf.Atan2(target.y - cp.y, distance) * Mathf.Rad2Deg + 90f;
         
         targetRotation = new Vector3(0, 0, Mathf.Lerp(startAngle, Mathf.Lerp(startAngle, targetAngle, t), t));
         
