@@ -10,11 +10,11 @@ public class Chunk : MonoBehaviour
     private int[] triangles;
     
     private Mesh mesh;
-    private int vert, tris;
+    private int tris;
 
     private TileProcessor processor;
 
-    private Vector2Int number;
+    private Vector3Int number;
     private Vector3Int chunkSize;
     private Vector3Int worldSize;
 
@@ -24,7 +24,7 @@ public class Chunk : MonoBehaviour
         Y,
         Z
     }
-    public void InitChunk(Vector2Int number, Vector3Int size, Vector3Int worldSize)
+    public void InitChunk(Vector3Int number, Vector3Int size, Vector3Int worldSize)
     {
         mesh = new Mesh();
         GetComponent<MeshFilter>().mesh = mesh;
@@ -35,11 +35,34 @@ public class Chunk : MonoBehaviour
         chunkSize = size;
         this.worldSize = worldSize;
         
-        gameObject.name = $"Chunk[{number.x}][{number.y}]";
+        gameObject.name = $"Chunk[{number.x}][{number.y}][{number.z}]";
         
         Draw();
     }
 
+    public void StateChange()
+    {
+        RawUpdate();
+        if (number.x != (worldSize.x / chunkSize.x - 1))
+            processor.GetChunkByNumber(number + Vector3Int.right).RawUpdate();
+        if (number.x != 0)
+            processor.GetChunkByNumber(number + Vector3Int.left).RawUpdate(); 
+        
+        if (number.y != (worldSize.y / chunkSize.y - 1))
+            processor.GetChunkByNumber(number + Vector3Int.up).RawUpdate();
+        if (number.y != 0)
+            processor.GetChunkByNumber(number + Vector3Int.down).RawUpdate();
+        
+        if (number.z != (worldSize.z / chunkSize.z - 1))
+            processor.GetChunkByNumber(number + Vector3Int.forward).RawUpdate();
+        if (number.z != 0)
+            processor.GetChunkByNumber(number + Vector3Int.back).RawUpdate();
+    }
+
+    public void RawUpdate()
+    {
+        Draw();
+    }
     private void Draw()
     {
         vertices = new Vector3[(chunkSize.x + 1) * (chunkSize.y + 1) * (chunkSize.z + 1)];
@@ -47,27 +70,24 @@ public class Chunk : MonoBehaviour
         colors = new Color[(chunkSize.x + 1) * (chunkSize.y + 1) * (chunkSize.z + 1)];
         
         Tile[,,] tiles = processor.GetAllTiles();
-        
-        vert = 0;
         tris = 0;
-        
         int v = 0;
-        for (int y = 0; y <= chunkSize.y; y++)
+        for (int y = number.y * chunkSize.y; y <= number.y * chunkSize.y + chunkSize.y; y++)
         {
-            for (int z = number.y * chunkSize.z; z <= number.y * chunkSize.z + chunkSize.z; z++)
+            for (int z = number.z * chunkSize.z; z <= number.z * chunkSize.z + chunkSize.z; z++)
             {
                 for (int x = number.x * chunkSize.x; x <= number.x * chunkSize.x + chunkSize.x; x++)
                 {
                     vertices[v] = new Vector3(x, y, z);
-                    colors[v] = Color.Lerp(Color.black, Color.red, (y - 20) / 40.5f);
+                    colors[v] = Color.Lerp(Color.black, new Color(0.59f, 0.85f, 0.9f), (y - 20) / 40.5f);
                     v++;
                 }
             }
         }
         
-        for (int y = 0; y < worldSize.y; y++)
+        for (int y = number.y * chunkSize.y; y < number.y * chunkSize.y + chunkSize.y; y++)
         {
-            for (int z = number.y * chunkSize.z; z < number.y * chunkSize.z + chunkSize.z; z++)
+            for (int z = number.z * chunkSize.z; z < number.z * chunkSize.z + chunkSize.z; z++)
             {
                 for (int x = number.x * chunkSize.x; x < number.x * chunkSize.x + chunkSize.x; x++)
                 {
@@ -118,12 +138,13 @@ public class Chunk : MonoBehaviour
     
     void CreateFace(Vector3Int p, Planes plane, bool inside)
     {
-        int corner;
+        int corner = (p.y - number.y * chunkSize.y) * (chunkSize.x + 1) * (chunkSize.z + 1) 
+                     + (p.z - number.z * chunkSize.z) * (chunkSize.x + 1)
+                     + (p.x - number.x * chunkSize.x);
         switch (plane)
         {
             case Planes.X:
             {
-                corner = p.y * (chunkSize.x + 1) * (chunkSize.z + 1) + (p.z - number.y * chunkSize.z) * (chunkSize.x + 1) + (p.x - number.x * chunkSize.x);
                 DefineTriangles(new []
                 {
                     corner,
@@ -136,7 +157,6 @@ public class Chunk : MonoBehaviour
             } break;
             case Planes.Y:
             {
-                corner = p.y * (chunkSize.x + 1) * (chunkSize.z + 1) + (p.z - number.y * chunkSize.z) * (chunkSize.x + 1) + (p.x - number.x * chunkSize.x);
                 DefineTriangles(new []
                 {
                     corner,
@@ -149,7 +169,6 @@ public class Chunk : MonoBehaviour
             } break;
             case Planes.Z:
             {
-                corner = p.y * (chunkSize.x + 1) * (chunkSize.z + 1) + (p.z - number.y * chunkSize.z) * (chunkSize.x + 1) + (p.x - number.x * chunkSize.x);
                 DefineTriangles(new []
                 {
                     corner,

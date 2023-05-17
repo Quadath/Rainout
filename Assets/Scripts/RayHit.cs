@@ -25,9 +25,14 @@ public class RayHit : MonoBehaviour
                 // Debug.Log(hit.point);
                 // Debug.Log(hit.normal);
                 if (Input.GetKeyUp(KeyCode.Mouse0))
+                {
                     FindObjectOfType<TileProcessor>().CastClick(hit.point, hit.normal, "destroy");
+                }
+
                 if (Input.GetKeyUp(KeyCode.Mouse2))
+                {
                     FindObjectOfType<TileProcessor>().CastClick(hit.point, hit.normal, "place");
+                }
             }
         }
 }

@@ -5,9 +5,9 @@ using UnityEngine.Rendering;
 
 public class TileProcessor : MonoBehaviour
 {
-    private int xSize = 1024;
-    private int ySize = 64;
-    private int zSize = 1024;
+    private int xSize = 64;
+    private int ySize = 16;
+    private int zSize = 64;
 
     private Mesh mesh;
 
@@ -20,8 +20,8 @@ public class TileProcessor : MonoBehaviour
     private int[,] heights;
 
     private int vert, tris;
-    private Chunk[,] chunks;
-    private Vector3Int chunkSize = new Vector3Int(16, 64, 16);
+    private Chunk[,,] chunks;
+    private Vector3Int chunkSize = new(16, 16, 16);
 
     public GameObject chunkPrefab;
 
@@ -43,7 +43,8 @@ public class TileProcessor : MonoBehaviour
                 for (int x = 0; x < xSize; x++)
                 {
                     if (y == 0)
-                        heights[x, z] = (int) (Mathf.PerlinNoise(x * .002f, z * .002f) * 35 + 10);
+                        // heights[x, z] = (int) (Mathf.PerlinNoise(x * .02f, z * .02f) * 35 + 10);
+                        heights[x,z] = 8;
                     if (y < heights[x, z])
                         tiles[x, y, z] = new Tile(new Vector3Int(x, y, z),
                             new Block(Constants.Blocks.Sandstone, 900));
@@ -54,209 +55,36 @@ public class TileProcessor : MonoBehaviour
             }
         }
 
-        chunks = new Chunk[xSize / chunkSize.x, (zSize / chunkSize.z)];
-
-        for (int z = 0; z < chunks.GetLength(1); z++)
+        chunks = new Chunk[xSize / chunkSize.x, ySize / chunkSize.y,zSize / chunkSize.z];
+        for (int y = 0; y < chunks.GetLength(1); y++)
         {
-            for (int x = 0; x < chunks.GetLength(0); x++)
+            for (int z = 0; z < chunks.GetLength(2); z++)
             {
-                Chunk ch = Instantiate(chunkPrefab, transform).GetComponent<Chunk>();
-                ch.InitChunk(new Vector2Int(x, z), chunkSize, new Vector3Int(xSize, ySize, zSize));
-            }
-        }
-    }
-
-
-    void DrawShape()
-    {
-        vertices = new Vector3[(xSize + 1) * (ySize + 1) * (zSize + 1)];
-        triangles = new int[xSize * ySize * zSize * 6];
-        colors = new Color[(xSize + 1) * (ySize + 1) * (zSize + 1)];
-
-        vert = 0;
-        tris = 0;
-        
-        int v = 0;
-        for (int y = 0; y <= ySize; y++)
-        {
-            for (int z = 0; z <= xSize; z++)
-            {
-                for (int x = 0; x <= xSize; x++)
+                for (int x = 0; x < chunks.GetLength(0); x++)
                 {
-                    vertices[v] = new Vector3(x, y, z);
-                    colors[v] = Color.Lerp(Color.black, Color.red, (y - 20) / 30.5f);
-                    v++;
+                    Chunk ch = Instantiate(chunkPrefab, transform).GetComponent<Chunk>();
+                    ch.InitChunk(new Vector3Int(x, y, z), chunkSize, new Vector3Int(xSize, ySize, zSize));
+                    chunks[x, y, z] = ch;
                 }
             }
         }
-
-        for (int y = 0; y < ySize; y++)
-        {
-            for (int z = 0; z < xSize; z++)
-            {
-                for (int x = 0; x < xSize; x++)
-                {
-                    ProcessTile(new Vector3Int(x, y, z));
-                }
-            }
-        }
-        UpdateMesh();
-        // StartCoroutine(processing());
     }
-
-    IEnumerator processing()
-    {
-        int x = 0;
-        int y = 0;
-        int z = 0;
-        while (true)
-        {
-            ProcessTile(new Vector3Int(x, y, z));
-            x++;
-            if (x == xSize)
-            {
-                x = 0;
-                z++;
-            }
-
-            if (z == zSize)
-            {
-                z = 0;
-                y++;
-            }
-
-            if (y == ySize)
-            {
-                break;
-            }
-
-            yield return new WaitForEndOfFrame();
-        }
-    }
-    void ProcessTile(Vector3Int pos)
-    {
-        if (!tiles[pos.x, pos.y, pos.z].IsSolid()) return;
-        
-        if (pos.x == 0)
-        {
-            CreateFace(pos, Planes.X, false);
-        }
-        if (pos.y == 0)
-        {
-            CreateFace(pos, Planes.Y, false);
-        }
-        if (pos.z == 0)
-        {
-            CreateFace(pos, Planes.Z, false);
-        }
-        if (pos.x < xSize - 1 && !tiles[pos.x + 1, pos.y, pos.z].IsSolid()) //FORWARD
-            CreateFace(pos + Vector3Int.right, Planes.X, true);
-        if (pos.x > 0 && !tiles[pos.x - 1, pos.y, pos.z].IsSolid()) //BACK
-            CreateFace(pos, Planes.X, false);
-        
-        if (pos.y < ySize - 1 && !tiles[pos.x, pos.y + 1, pos.z].IsSolid()) //UP
-            CreateFace(pos + Vector3Int.up, Planes.Y, true);
-        if (pos.y > 0 && !tiles[pos.x, pos.y - 1, pos.z].IsSolid()) //DOWN
-            CreateFace(pos, Planes.Y, false);
-        
-        if(pos.z < zSize - 1 && !tiles[pos.x, pos.y, pos.z + 1].IsSolid()) //RIGHT
-            CreateFace(pos + Vector3Int.forward, Planes.Z, true);
-        if (pos.z > 0 && !tiles[pos.x, pos.y, pos.z - 1].IsSolid()) //LEFT
-            CreateFace(pos, Planes.Z, false);
-        
-        if (pos.x == xSize - 1) //END X
-            CreateFace(pos + Vector3Int.right, Planes.X, true);
-        if (pos.y == ySize - 1) //END Y
-            CreateFace(pos + Vector3Int.up, Planes.Y, true);
-        if (pos.z == zSize - 1) //END Z
-            CreateFace(pos + Vector3Int.forward, Planes.Z, true);
-    }
-    void CreateFace(Vector3Int p, Planes plane, bool inside)
-    {
-        int corner;
-        switch (plane)
-        {
-            case Planes.X:
-            {
-                corner = p.y * (xSize + 1) * (zSize + 1) + p.z * (xSize + 1) + p.x;
-                DefineTriangles(new []
-                {
-                    corner,
-                    corner + xSize + 1,
-                    corner + (xSize + 1) * (zSize + 1) + (xSize + 1),
-                    corner + (xSize + 1) * (zSize + 1) + (xSize + 1),
-                    corner + (xSize + 1) * (zSize + 1),
-                    corner
-                }, inside);
-            } break;
-            case Planes.Y:
-            {
-                corner = p.y * (xSize + 1) * (zSize + 1) + p.z * (xSize + 1) + p.x;
-                DefineTriangles(new []
-                {
-                    corner,
-                    corner + xSize + 2,
-                    corner + xSize + 1,
-                    corner,
-                    corner + 1,
-                    corner + xSize + 2
-                }, inside);
-            } break;
-            case Planes.Z:
-            {
-                corner = p.y * (xSize + 1) * (zSize + 1) + p.z * (xSize + 1) + p.x;
-                DefineTriangles(new []
-                {
-                    corner,
-                    corner + (xSize + 1) * (zSize + 1),
-                    corner + (xSize + 1) * (zSize + 1) + 1,
-                    corner,
-                    corner + (xSize + 1) * (zSize + 1) + 1,
-                    corner + 1
-                }, inside);
-            } break;
-        }
-    }
-
-    private void DefineTriangles(int[] tri, bool inside)
-    {
-        triangles[inside ? tris + 2 : tris] = tri[0];
-        triangles[tris + 1] = tri[1];
-        triangles[inside ? tris : tris + 2] = tri[2];
-        triangles[inside ? tris + 5 : tris + 3] = tri[3];
-        triangles[tris + 4] = tri[4];
-        triangles[inside ? tris + 3 : tris + 5] = tri[5];
-        
-        tris += 6;
-    }
-    void UpdateMesh()
-    {
-        mesh.Clear();
-
-        mesh.vertices = vertices;
-        mesh.triangles = triangles;
-        mesh.colors = colors;
-        GetComponent<MeshCollider>().sharedMesh = mesh;
-        mesh.RecalculateNormals();
-    }
-
     public Vector3Int CastClick(Vector3 clickPoint, Vector3 normal, string operation)
     {
         // Debug.Log("clicked: " + clickPoint + "   normal: " + normal);
-        // normal *= -1;
-        // Vector3Int targetedBlock = new Vector3Int(
-        //     (int) Math.Floor(normal.x > 0 ? clickPoint.x : clickPoint.x + normal.x),
-        //     (int) Math.Floor(normal.y > 0 ? clickPoint.y : clickPoint.y + normal.y),
-        //     (int) Math.Floor(normal.z > 0 ? clickPoint.z : clickPoint.z + normal.z)
-        // );
+        normal *= -1;
+        Vector3Int targetedBlock = new Vector3Int(
+            (int) Math.Floor(normal.x > 0 ? clickPoint.x : clickPoint.x + normal.x),
+            (int) Math.Floor(normal.y > 0 ? clickPoint.y : clickPoint.y + normal.y),
+            (int) Math.Floor(normal.z > 0 ? clickPoint.z : clickPoint.z + normal.z)
+        );
         // Debug.Log("target: " + targetedBlock);
-        //
-        // if (operation == "destroy") tiles[targetedBlock.x, targetedBlock.y, targetedBlock.z].Destroy();
-        // if (operation == "place") tiles[targetedBlock.x - (int)normal.x, targetedBlock.y - (int)normal.y, targetedBlock.z - (int)normal.z].PutBlock(new Block(Constants.Blocks.Sandstone, 900));
-        // DrawShape();
-        // // Instantiate(cube, Vector3.one * 0.5f + targetedBlock, Quaternion.identity);
-        // return targetedBlock;
-        return new Vector3Int(0, 0, 0);
+        
+        if (operation == "destroy") DestroyBlock(targetedBlock);
+        if (operation == "place") PlaceBlock(new Vector3Int(targetedBlock.x - (int)normal.x, targetedBlock.y - (int)normal.y, targetedBlock.z - (int)normal.z));
+        
+        // Instantiate(cube, Vector3.one * 0.5f + targetedBlock, Quaternion.identity);
+        return targetedBlock;
     }
 
     public Tile[,,] GetAllTiles()
@@ -264,6 +92,40 @@ public class TileProcessor : MonoBehaviour
         return tiles;
     }
 
+    public Chunk GetChunkByNumber(Vector3Int number)
+    {
+        if (number.x > chunks.GetLength(0) || number.x < 0) Debug.LogError("GetChunkByNumber - out of range. X");
+        if (number.y > chunks.GetLength(1) || number.y < 0) Debug.LogError("GetChunkByNumber - out of range. Y");
+        if (number.z > chunks.GetLength(2) || number.z < 0) Debug.LogError("GetChunkByNumber - out of range. Z");
+
+        return chunks[number.x, number.y, number.z];
+    }
+
+    public void PlaceBlock(Vector3Int pos)
+    {
+        if (pos.x >= xSize || pos.y >= ySize || pos.z >= zSize)
+        {
+            Debug.LogWarning("Cannot place block outside a world.");
+            return;
+        }
+
+        if (pos.x < 0 || pos.y < 0 || pos.z < 0)
+        {
+            Debug.LogWarning("Cannot place block outside a world.");
+            return;
+        }
+        
+        tiles[pos.x, pos.y, pos.z].PutBlock(new Block(Constants.Blocks.Sandstone, 900));
+        // Debug.Log("X: " + (int)Math.Floor((float)pos.x / chunkSize.x) + " Y: " + (int)Math.Floor((float)pos.y / chunkSize.y) + " Z: " + (int)Math.Floor((float)pos.z / chunkSize.z));
+        chunks[(int)Math.Floor((float)pos.x / chunkSize.x), (int)Math.Floor((float)pos.y / chunkSize.y), (int)Math.Floor((float)pos.z / chunkSize.z)].StateChange();
+    }
+
+    public void DestroyBlock(Vector3Int pos)
+    {
+        tiles[pos.x, pos.y, pos.z].Destroy();
+        // Debug.Log("X: " + (int)Math.Floor((float)pos.x / chunkSize.x) + " Y: " + (int)Math.Floor((float)pos.y / chunkSize.y) + " Z: " + (int)Math.Floor((float)pos.z / chunkSize.z));
+        chunks[(int)Math.Floor((float)pos.x / chunkSize.x), (int)Math.Floor((float)pos.y / chunkSize.y), (int)Math.Floor((float)pos.z / chunkSize.z)].StateChange();
+    }
     private void OnDrawGizmos()
     {
         // for (int y = 0; y < ySize; y++)
